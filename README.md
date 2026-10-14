@@ -67,6 +67,7 @@ stick, boot the box from it, then (on Amlogic TV boxes) run the usual
 | `RELEASE` | `trixie` | Debian/Ubuntu userland |
 | `BRANCH` | `current` | Kernel branch: `current` or `edge` |
 | `KERNEL_CONFIGURE` | `no` | Set `yes` once if you need to flip the gadget Kconfig |
+| `KERNEL_BTF` | `no` | Kernel BTF/eBPF info. Off by default — the LD/BTF step needs ~8 GB RAM. Set `yes` only on a big-RAM host that needs eBPF tooling. |
 | `WIFI_SSID` / `WIFI_PSK` | — | Pre-seed a Wi-Fi connection into the image |
 | `WIFI_COUNTRY` | `ID` | Wi-Fi regulatory domain |
 

@@ -23,6 +23,9 @@
 #   RELEASE         Debian/Ubuntu release (default: trixie)
 #   BRANCH          kernel branch: current | edge (default: current)
 #   KERNEL_CONFIGURE yes | no (default: no; set yes once to flip the gadget Kconfig)
+#   KERNEL_BTF      yes | no (default: no) -- the kernel LD/BTF step needs lots of
+#                   RAM (~8 GB+); off by default for low-RAM hosts. BTF is only
+#                   needed for eBPF/BTF tooling, not for this appliance.
 #   WIFI_SSID/WIFI_PSK  pre-seed a Wi-Fi connection into the image
 #   WIFI_COUNTRY    regulatory domain for Wi-Fi (default: ID)
 #   WIFI_DRIVER     rtl8189fs (default) or none -- bundle the out-of-tree
@@ -38,6 +41,7 @@ BOARD="aml-s9xx-box"
 RELEASE="${RELEASE:-trixie}"
 BRANCH="${BRANCH:-current}"
 KERNEL_CONFIGURE="${KERNEL_CONFIGURE:-no}"
+KERNEL_BTF="${KERNEL_BTF:-no}"
 ARMBIAN_BUILD="${ARMBIAN_BUILD:-$HERE/build}"
 
 EXTRA=()
@@ -95,4 +99,5 @@ exec ./compile.sh \
   BUILD_DESKTOP=no \
   BUILD_MINIMAL=yes \
   KERNEL_CONFIGURE="$KERNEL_CONFIGURE" \
+  KERNEL_BTF="$KERNEL_BTF" \
   "${EXTRA[@]}"
