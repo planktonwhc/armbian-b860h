@@ -31,6 +31,9 @@
 #   WIFI_DRIVER     rtl8189fs (default) or none -- bundle the out-of-tree
 #                   RTL8189FS SDIO driver (the B860H V2's Wi-Fi chip) as DKMS
 #   WIFI_DRIVER_REPO / WIFI_DRIVER_REF  override the driver source/branch
+#   COMPRESS        output compression (default: sha,xz -> a small .img.xz like
+#                   the official downloads). 'sha,zstd' is faster; 'sha,img'
+#                   keeps the raw ~2 GB .img uncompressed.
 # Extra args after `--` go straight to compile.sh.
 #
 set -euo pipefail
@@ -42,6 +45,7 @@ RELEASE="${RELEASE:-trixie}"
 BRANCH="${BRANCH:-current}"
 KERNEL_CONFIGURE="${KERNEL_CONFIGURE:-no}"
 KERNEL_BTF="${KERNEL_BTF:-no}"
+COMPRESS="${COMPRESS:-sha,xz}"
 ARMBIAN_BUILD="${ARMBIAN_BUILD:-$HERE/build}"
 
 EXTRA=()
@@ -100,4 +104,5 @@ exec ./compile.sh \
   BUILD_MINIMAL=yes \
   KERNEL_CONFIGURE="$KERNEL_CONFIGURE" \
   KERNEL_BTF="$KERNEL_BTF" \
+  COMPRESS_OUTPUTIMAGE="$COMPRESS" \
   "${EXTRA[@]}"
