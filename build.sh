@@ -91,6 +91,26 @@ elif [ "$WIFI_DRIVER" != "none" ]; then
 fi
 export WIFI_DRIVER
 
+# The generic p212 reference dtb does not bring up the B860H's SDIO Wi-Fi bus
+# (no wlan0). This B860H dtb (ZTE B860H, based on p212) enables sd_emmc_a +
+# the Wi-Fi power sequence, so the RTL8189FS enumerates and the driver binds.
+# Fetched with a pinned checksum; customize-image.sh installs it and points
+# extlinux at it. Skip with B860H_DTB=none.
+B860H_DTB="${B860H_DTB:-fetch}"
+if [ "$B860H_DTB" = "fetch" ]; then
+  url="${B860H_DTB_URL:-https://raw.githubusercontent.com/hafidhh/B860H-HG680P-Armbian/HEAD/dtb/b860h/meson-gxl-s905x-p212.dtb}"
+  sha="${B860H_DTB_SHA256:-95a683f7931744a03de2ab1f7d9bd6a08cc7cb9b9b7fbce3f96b667aec22b896}"
+  dtb="$ARMBIAN_BUILD/userpatches/overlay/meson-gxl-s905x-b860h.dtb"
+  say "Fetching B860H device tree (Wi-Fi SDIO)"
+  curl -fL "$url" -o "$dtb"
+  got="$(sha256sum "$dtb" | cut -d' ' -f1)"
+  [ "$got" = "$sha" ] || die "B860H dtb checksum mismatch (got $got, want $sha). The source may have changed; verify it, then set B860H_DTB_SHA256=$got (or B860H_DTB=none)."
+  echo "  dtb verified: $sha"
+elif [ "$B860H_DTB" != "none" ]; then
+  die "B860H_DTB must be 'fetch' or 'none' (got '$B860H_DTB')"
+fi
+export B860H_DTB
+
 # Wi-Fi pre-seed and country are read by customize-image.sh from the environment.
 export WIFI_SSID="${WIFI_SSID:-}" WIFI_PSK="${WIFI_PSK:-}" WIFI_COUNTRY="${WIFI_COUNTRY:-ID}"
 

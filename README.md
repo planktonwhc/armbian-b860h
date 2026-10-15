@@ -34,6 +34,8 @@ This folder only holds the customisation. The actual build is done by
 `build.sh` also fetches the RTL8189FS driver source (`jwrdegoede/rtl8189ES_linux`,
 branch `rtl8189fs`) into the Armbian overlay so it ships in the image. Skip it with
 `WIFI_DRIVER=none`, or point elsewhere with `WIFI_DRIVER_REPO` / `WIFI_DRIVER_REF`.
+It likewise fetches the B860H device tree (checksum-pinned, `B860H_DTB=none` to
+skip) — see [Device tree (required for Wi-Fi)](#device-tree-required-for-wi-fi).
 
 ## Requirements
 
@@ -115,14 +117,24 @@ image time) or after a kernel upgrade, build it on the box:
 orbit-wifi-driver             # installs headers, DKMS build+install, loads 8189fs
 ```
 
-Two things to verify on hardware, since they depend on the chosen dtb:
+### Device tree (required for Wi-Fi)
 
-- The driver's build profile is set to the generic arm64 (RPi) profile. If the DKMS
-  build fails, adjust the platform flags in `/usr/src/rtl8189fs-*/Makefile`.
-- The SDIO Wi-Fi node must be enabled in the device tree for the module to find the
-  chip. If `8189fs` loads but no `wifi` device appears, the selected `.dtb` is
-  missing/disabling the SDIO node — note it from `dmesg | grep -iE 'mmc|sdio'` and
-  we can add an overlay.
+The generic `meson-gxl-s905x-p212.dtb` boots and gives Ethernet, but leaves the
+**SDIO Wi-Fi bus off** — the driver loads but finds no chip, so there is no
+`wlan0`. The build fetches a **B860H device tree** (`ZTE B860H`, based on p212,
+which enables `sd_emmc_a` and the Wi-Fi power sequence), installs it to
+`/boot/dtb/amlogic/meson-gxl-s905x-b860h.dtb`, and points `extlinux.conf` at it.
+Verified on hardware: `wlan0` appears and the RTL8189FS (SDIO `024c:f179`) binds.
+
+- Source: [hafidhh/B860H-HG680P-Armbian](https://github.com/hafidhh/B860H-HG680P-Armbian),
+  pinned by SHA-256 (`B860H_DTB_SHA256`); skip with `B860H_DTB=none`.
+- If you flashed an older image without this dtb, fix it live: copy that dtb into
+  `/boot/dtb/amlogic/`, set the `fdt` line in `/boot/extlinux/extlinux.conf` to it,
+  and reboot.
+
+Other build-profile note: the driver's DKMS build uses the generic arm64 (RPi)
+profile. If the build fails, adjust the platform flags in
+`/usr/src/rtl8189fs-*/Makefile`.
 
 ## AOA / USB-OTG (experimental)
 
@@ -138,18 +150,22 @@ What the image does:
 - Mounts configfs.
 - Installs `orbit-otg` to inspect/switch the role.
 
-What you must verify on the box (not doable from here):
+Verified on the B860H: the box exposes a runtime **usb-role-switch** and a UDC
+(`c9100000.usb`), and `orbit-otg peripheral` flips the role to `device` — so **no
+dtb change is needed**. The image enables `orbit-otg-peripheral.service`, which
+sets the port to device mode at every boot (like the Pi's `dr_mode=peripheral`).
+This makes that USB port **device-only**; to use it as a host instead,
+`systemctl disable --now orbit-otg-peripheral`.
 
-1. **A UDC exists.** `orbit-otg status` — if `/sys/class/udc` is non-empty, the OTG
-   port can be a gadget. If it's empty, the controller is stuck in host mode.
-2. **`dr_mode` is `peripheral` or `otg`.** On Amlogic the dwc2 OTG node
-   (`usb@ff400000`) usually ships as `dr_mode = "host"`. Device/gadget mode needs a
-   device-tree change — a `.dtbo` overlay or a patched dtb setting
-   `dr_mode = "peripheral"` (or `"otg"` with a working role-switch). This is
-   board-specific and is the main unknown.
-3. **Which physical port is the OTG one.** Many TV boxes route the USB-A ports
-   through a host-only hub and expose OTG only on a separate pad/port (sometimes the
+Still to confirm with real goggles (needs orbit-rs, below):
+
+1. **Which physical port is the OTG one.** Many TV boxes route the USB-A ports
+   through a host-only hub and expose OTG only on one specific port (sometimes the
    one shared with power, or an internal header). The goggles must be on *that* port.
+2. The full AOA handshake — only orbit-rs exercises it.
+
+On another board that has no role-switch, `orbit-otg status` would show an empty
+`/sys/class/udc`; there you'd need a device-tree `dr_mode = "peripheral"`/`"otg"`.
 
 Kernel symbols the gadget needs are listed in `userpatches/kernel-gadget.config`.
 The meson64 kernel usually already ships them as modules (for Android ADB), so a

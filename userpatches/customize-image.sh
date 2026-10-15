@@ -142,6 +142,25 @@ MOD
 		install -D -m 0755 /tmp/overlay/orbit-wifi-driver.sh /usr/local/sbin/orbit-wifi-driver
 	fi
 
+	# Put the OTG port in peripheral (device) mode at boot, so the goggles see
+	# this box as a USB device for the AOA link -- like the Pi's dr_mode=peripheral.
+	# The B860H exposes a runtime usb-role-switch (verified: role -> device, UDC
+	# c9100000.usb), so no dtb change is needed. The '-' makes a board without a
+	# role-switch boot cleanly. NOTE: this makes that USB port device-only; to use
+	# it as a host instead, `systemctl disable --now orbit-otg-peripheral`.
+	cat > /etc/systemd/system/orbit-otg-peripheral.service <<'UNIT'
+[Unit]
+Description=Put the USB-OTG port in peripheral mode for the Orbit goggles AOA link
+After=multi-user.target
+[Service]
+Type=oneshot
+ExecStart=-/usr/local/sbin/orbit-otg peripheral
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target
+UNIT
+	systemctl enable orbit-otg-peripheral.service || true
+
 	# Make sure configfs is mounted (orbit-rs builds the gadget under it).
 	if ! grep -q 'configfs' /etc/fstab; then
 		echo "configfs /sys/kernel/config configfs defaults 0 0" >> /etc/fstab
@@ -150,6 +169,22 @@ MOD
 	# Ship the OTG-port helper so it can be run on the box to check/switch roles.
 	if [ -f /tmp/overlay/orbit-otg.sh ]; then
 		install -D -m 0755 /tmp/overlay/orbit-otg.sh /usr/local/sbin/orbit-otg
+	fi
+
+	# --- B860H device tree (brings up the SDIO Wi-Fi bus) --------------------
+	# The generic p212 reference dtb leaves the Wi-Fi SDIO bus off (no wlan0).
+	# Install the B860H dtb and point extlinux at it. Verified at fetch time in
+	# build.sh.
+	if [ -f /tmp/overlay/meson-gxl-s905x-b860h.dtb ]; then
+		install -D -m 0644 /tmp/overlay/meson-gxl-s905x-b860h.dtb \
+			/boot/dtb/amlogic/meson-gxl-s905x-b860h.dtb
+		if [ -f /boot/extlinux/extlinux.conf ]; then
+			sed -i 's|^\([[:space:]]*\)fdt .*|\1fdt /dtb/amlogic/meson-gxl-s905x-b860h.dtb|' \
+				/boot/extlinux/extlinux.conf
+			echo "orbit: extlinux fdt -> B860H dtb"
+		else
+			echo "orbit: B860H dtb installed; set 'fdt /dtb/amlogic/meson-gxl-s905x-b860h.dtb' in extlinux.conf by hand (it was not present at image time)"
+		fi
 	fi
 
 	echo "orbit: B860H image customised (Wi-Fi primary + dwc2 gadget modules)"
